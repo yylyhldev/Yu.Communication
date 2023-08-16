@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Yu.Communication.Server.Web</name>
+    </assembly>
+    <members>
+        <member name="T:Yu.Communication.Server.Web.SingalRAuthorizationMiddleware">
+            <summary>
+            非jwt方式鉴权，需与 builder.Services.AddJwtConfigure 二选一 <br/>
+            此方式SingalRHandler不可启用[Microsoft.AspNetCore.Authorization.Authorize]
+            </summary>
+        </member>
+        <member name="M:Yu.Communication.Server.Web.SingalRAuthorizationMiddleware.#ctor(Microsoft.AspNetCore.Http.RequestDelegate,Microsoft.Extensions.Logging.ILogger{Yu.Communication.Server.Web.SingalRAuthorizationMiddleware},Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>
+            构造方法
+            </summary>
+            <param name="next"></param>
+        </member>
+        <member name="M:Yu.Communication.Server.Web.SingalRAuthorizationMiddleware.InvokeAsync(Microsoft.AspNetCore.Http.HttpContext)">
+            <summary>
+            Invoke
+            </summary>
+            <param name="context"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Yu.Communication.Server.Web.SingalRHandler">
+            <summary>
+            SingalR Server
+            </summary>
+        </member>
+        <member name="P:Yu.Communication.Server.Web.SingalRHandler.Pattern">
+            <summary>
+            "/signalr"
+            </summary>
+        </member>
+        <member name="F:Yu.Communication.Server.Web.SingalRHandler.WaitConnectUsers">
+            <summary>
+            待连接userId队列：[InvokeAsync校验通过后入队(WaitConnectUsers.Enqueue(userId)) ==》 OnConnectedAsync出队建立连接(WaitConnectUsers.TryDequeue(out var userId))]
+            </summary>
+        </member>
+        <member name="F:Yu.Communication.Server.Web.SingalRHandler.SkipKickedOffline">
+            <summary>
+            当前服务实例需忽略这条订阅消息
+            </summary>
+        </member>
+        <member name="P:Yu.Communication.Server.Web.SingalRHandler.ServerId">
+            <summary>
+            当前服务实例Id
+            </summary>
+        </member>
+        <member name="M:Yu.Communication.Server.Web.SingalRHandler.KickedOffline">
+            <summary>
+            订阅频道---多实例/集群部署时：用Redis发布订阅实现踢下线
+            </summary>
+            <remarks>1.服务端实例订阅[频道A]；<br/>2.客户端上线时，当前服务实例先做检查，无重复的再向[频道A]发送客户端信息；<br/>3.其他订阅[频道A]的服务实例检查客户端信息，如有则踢下线；</remarks>
+        </member>
+        <member name="T:Yu.Communication.Server.Web.WebsocketHandler">
+            <summary>
+            Websocket Server
+            </summary>
+        </member>
+        <member name="F:Yu.Communication.Server.Web.WebsocketHandler.SkipKickedOffline">
+            <summary>
+            当前服务实例需忽略这条订阅消息
+            </summary>
+        </member>
+        <member name="P:Yu.Communication.Server.Web.WebsocketHandler.ServerId">
+            <summary>
+            当前服务实例Id
+            </summary>
+        </member>
+        <member name="M:Yu.Communication.Server.Web.WebsocketHandler.#ctor(Microsoft.AspNetCore.Http.RequestDelegate,Microsoft.Extensions.Logging.ILogger{Yu.Communication.Server.Web.WebsocketHandler},Microsoft.Extensions.Configuration.IConfiguration,FreeRedis.RedisClient[])">
+            <summary>
+            构造方法
+            </summary>
+            <param name="next"></param>
+        </member>
+        <member name="M:Yu.Communication.Server.Web.WebsocketHandler.InvokeAsync(Microsoft.AspNetCore.Http.HttpContext)">
+            <summary>
+            Invoke
+            </summary>
+            <param name="context"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Yu.Communication.Server.Web.WebsocketHandler.KickedOffline">
+            <summary>
+            订阅频道---多实例/集群部署时：用Redis发布订阅实现踢下线
+            </summary>
+            <remarks>1.服务端实例订阅[频道A]；<br/>2.客户端上线时，当前服务实例先做检查，无重复的再向[频道A]发送客户端信息；<br/>3.其他订阅[频道A]的服务实例检查客户端信息，如有则踢下线；</remarks>
+        </member>
+    </members>
+</doc>

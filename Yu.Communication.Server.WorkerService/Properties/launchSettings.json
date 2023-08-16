@@ -1,0 +1,11 @@
+﻿{
+  "profiles": {
+    "Yu.Communication.Server.WorkerService": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
