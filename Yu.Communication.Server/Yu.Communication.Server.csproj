@@ -10,8 +10,9 @@
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="7.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
-		<PackageReference Include="MQTTnet" Version="4.2.0.706" />
-		<PackageReference Include="SocketIOSharp2" Version="2.0.4" />
+		<PackageReference Include="MQTTnet" Version="4.2.1.781" />
+    <!--<PackageReference Include="SocketIOSharp" Version="2.0.3" />-->
+    <PackageReference Include="SocketIOSharp2" Version="2.0.5" />
 		<PackageReference Include="SuperSocket" Version="2.0.0-beta.16" />
 	</ItemGroup>
 </Project>

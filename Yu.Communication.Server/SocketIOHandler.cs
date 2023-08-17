@@ -13,7 +13,7 @@ namespace Yu.Communication.Server
         /// <summary>
         /// 当前服务实例需忽略的队列消息
         /// </summary>
-        public static ConcurrentQueue<string> Ignoreds => new();
+        public static ConcurrentQueue<string> Ignoreds = new();
         /// <summary>
         /// 当前服务实例Id
         /// </summary>
@@ -80,26 +80,28 @@ namespace Yu.Communication.Server
                 Server.OnConnection(async (socket) =>
                 {
                     var key = DateTime.Now.Ticks.ToString();
+                    //socket.Emit("message", "走你，断开");
                     #region 鉴权后 [server.OnConnecting]方式
                     if (!WaitConnectUsers.TryDequeue(out var userId) || userId < 1)
                     {
                         _logger.LogInformation($"走你：<{userId}>");
+                        await Task.Delay(30, cancellationToken);
                         socket.Emit("close", "走你，断开");
                         await Task.Delay(1000);
                         socket.Close();
                         return;
                     }
-                    await AfterAuth(socket, key, cancellationToken);
                     #endregion
-                    _logger.LogInformation($"{DateTime.Now:HH:mm:ss.fff}>SocketIO Client 已连接");
                     socket.Off(SocketIOEvent.ERROR, () => { });
                     socket.Off(SocketIOEvent.DISCONNECT, () => { });
                     socket.Off("message", () => { });
-                    socket.Off("auth", () => { });
                     socket.On(SocketIOEvent.ERROR, (data) =>
                     {
                         _logger.LogInformation($"{DateTime.Now:HH:mm:ss.fff}>SocketIO>Error：[{data[0]}]");
                     });
+                    _logger.LogInformation($"{DateTime.Now:HH:mm:ss.fff}>SocketIO Client 已连接");
+                    await AfterAuth(socket, key, cancellationToken);
+                    //socket.Off("auth", () => { });
                     //HandleAuth(socket, key, cancellationToken);//无[server.OnConnecting]方式
                 });
                 //await Task.Factory.StartNew(async () => await AuthCheck(cancellationToken: cancellationToken), TaskCreationOptions.LongRunning);//无[server.OnConnecting]方式
@@ -195,9 +197,12 @@ namespace Yu.Communication.Server
                 Ignoreds.Enqueue($"{ServerId}_off_{wsKey}");
                 await _rdbs[2].PublishAsync($"evt_KickedOff", wsKey);
             }
+            _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}] {socket.ReadyState}");
             _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}] 连接数：{ConnectionDic.Count}");
             #endregion
+            await Task.Delay(30, cancellationToken);
             socket.Emit("message", "来了老弟");
+            _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}] {socket.ReadyState}");
             //await Task.Delay(50000, cancellationToken);
             //socket.Emit("close", "走你");
             //socket.Close();//Client-SocketIOEvent.DISCONNECT：EngineIOSharp.Common.EngineIOException: Transport close
@@ -214,7 +219,6 @@ namespace Yu.Communication.Server
         {
             _logger.LogInformation($"{DateTime.Now:HH:mm:ss.fff}>SocketIO Server 走起[{key}]");
             UnAuths.TryAdd(key, new DataSocketNotAuth(socket, DateTime.UtcNow));
-            socket.Off("message", () => { });
             socket.On("auth", async (data) =>
             {
                 if (oldSocket == socket)

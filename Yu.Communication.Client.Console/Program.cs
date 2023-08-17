@@ -23,7 +23,7 @@ Console.WriteLine("开始了......");
 var tokenVal = "eyJhbGciOiJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGRzaWctbW9yZSNobWFjLXNoYTI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjkwMjU1RDA3ODVGRUFDOTdGMkFGRjU0OEE5RjdENEQyOTg4MzY4NjAiLCJuYW1lIjoiQzBGRkU3N0ExM0NGMUMwREQ3NTYyQTdEQUVCQTk2QUM2NTYwOTYiLCJwaG9uZV9udW1iZXIiOiJDMEZGRTc3QTEzQ0YxQzBERDc1NjJBN0RBRUJBOTZBQzY1NjA5NiIsIm5iZiI6MTY4NDczMTkxOSwiZXhwIjoxNzEwNjUxOTE5LCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo0NDM3NiIsImF1ZCI6Imh0dHBzOi8vbG9jYWxob3N0OjQ0Mzc2In0.EmpsSWxLUIi5LZqkMRyicktkRB30nwrRhD6KXcxiNzE";
 
 DateTime authTime = DateTime.Now;
-var SigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(Encoding.UTF8.GetBytes("jwtSecretKey"));
+var SigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(Encoding.UTF8.GetBytes("jwtSecretKey0000000000"));
 var jwt = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(
     issuer: "https://localhost:8080",
     audience: "https://localhost:8080",
@@ -219,8 +219,8 @@ async Task TestMqtt(string host, bool useSsl, int serverPort, string tokenVal)
                 IgnoreCertificateRevocationErrors = true,
                 CertificateValidationHandler = ValidateMqttServerCertificate,
                 Certificates = new[] {
-                            new X509Certificate2("D:\\Deploy\\SSL\\game.yylyhl.com_iis\\game.yylyhl.com.pfx", "g3bac110516q"),
-                            new X509Certificate(@"D:\Deploy\SSL\game.yylyhl.com_nginx\\game.yylyhl.com_bundle.crt")
+                            new X509Certificate2("D:\\Deploy\\domain.com.pfx", "123456"),
+                            new X509Certificate(@"D:\\Deploy\\\domain.com_bundle.crt")
                     },
                 SslProtocol = SslProtocols.Tls12
             })
@@ -280,57 +280,64 @@ bool ValidateMqttServerCertificate(MqttClientCertificateValidationEventArgs args
 #region SocketIO
 void TestSocketIO(string host, bool useSsl, ushort serverPort)
 {
-    useSsl = false;
-    var ExtraHeaders = new System.Collections.Generic.Dictionary<string, string>()
+    try
+    {
+        useSsl = false;
+        var ExtraHeaders = new System.Collections.Generic.Dictionary<string, string>()
     {
         { "token", "tokenVal-" },
         { "matchId", "123456-" }
     };
-    RemoteCertificateValidationCallback zs = (a, b, c, d) => true;
-    zs = new RemoteCertificateValidationCallback(CertificateHelper.ValidateRemoteCertificate);
-    X509CertificateCollection? certificates = null;
-    if (useSsl)
-    {
-        var certCommonName = certName.Split(",")[0].Split("=")[1];
-        certificates = CertificateHelper.GetCertificatesFromStore(certCommonName, false);
+        RemoteCertificateValidationCallback zs = (a, b, c, d) => true;
+        zs = new RemoteCertificateValidationCallback(CertificateHelper.ValidateRemoteCertificate);
+        X509CertificateCollection? certificates = null;
+        if (useSsl)
+        {
+            var certCommonName = certName.Split(",")[0].Split("=")[1];
+            certificates = CertificateHelper.GetCertificatesFromStore(certCommonName, false);
+        }
+        var options = new SocketIOClientOption(useSsl ? EngineIOScheme.https : EngineIOScheme.http, host, serverPort, ServerCertificateValidationCallback: zs, ClientCertificates: certificates, Reconnection: false, ExtraHeaders: ExtraHeaders);
+        var socketIoClient = new SocketIOClient(options);
+        socketIoClient.On("close", () =>
+        {
+            Console.WriteLine($"SocketIO>close-server通知断开");
+            socketIoClient.Close();//Client-SocketIOEvent.DISCONNECT：EngineIOSharp.Common.EngineIOException: Forced close
+        });
+        socketIoClient.On(SocketIOEvent.CONNECTING, (data) =>
+        {
+            Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff}>SocketIO>连接中{socketIoClient}，{data == Array.Empty<JToken>()}");
+        });
+        socketIoClient.On(SocketIOEvent.CONNECTION, (data) =>
+        {
+            Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff}>SocketIO>已连上{socketIoClient}，{data == Array.Empty<JToken>()}");
+            socketIoClient.Emit("auth", new object[] { "tokenval" + DateTime.Now.Ticks, 123 });
+            socketIoClient.Emit("message", "我来也");
+        });
+        socketIoClient.On(SocketIOEvent.DISCONNECT, (data) =>
+        {
+            Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff}>SocketIO>Disconnected：[{data[0]}]");
+            if (data[0].Contains("Forced close"))
+            {
+                socketIoClient.Dispose();//Client-SocketIOEvent.DISCONNECT：EngineIOSharp.Common.EngineIOException: Forced close
+            }
+        });
+        socketIoClient.On(SocketIOEvent.ERROR, (JToken[] data) =>
+        {
+            Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff}>SocketIO>Error：[{data[0]}]");
+        });
+        socketIoClient.On("message", (data) =>
+        {
+            foreach (JToken token in data)
+            {
+                Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff}>SocketIO>message：" + (token.Type == JTokenType.Bytes ? BitConverter.ToString(token.ToObject<byte[]>()) : token));
+            }
+        });
+        socketIoClient.Connect();
     }
-    var options = new SocketIOClientOption(useSsl ? EngineIOScheme.https : EngineIOScheme.http, host, serverPort, ServerCertificateValidationCallback: zs, ClientCertificates: certificates, Reconnection: false, ExtraHeaders: ExtraHeaders);
-    var socketIoClient = new SocketIOClient(options);
-    socketIoClient.On("close", () =>
+    catch (Exception ex)
     {
-        Console.WriteLine($"SocketIO>close-server通知断开");
-        socketIoClient.Close();//Client-SocketIOEvent.DISCONNECT：EngineIOSharp.Common.EngineIOException: Forced close
-    });
-    socketIoClient.On(SocketIOEvent.CONNECTING, (data) =>
-    {
-        Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff}>SocketIO>连接中{socketIoClient}，{data == Array.Empty<JToken>()}");
-    });
-    socketIoClient.On(SocketIOEvent.CONNECTION, (data) =>
-    {
-        Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff}>SocketIO>已连上{socketIoClient}，{data == Array.Empty<JToken>()}");
-        socketIoClient.Emit("auth", new object[] { "tokenval" + DateTime.Now.Ticks, 123 });
-        socketIoClient.Emit("message", "我来也");
-    });
-    socketIoClient.On(SocketIOEvent.DISCONNECT, (data) =>
-    {
-        Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff}>SocketIO>Disconnected：[{data[0]}]");
-        if (data[0].Contains("Forced close"))
-        {
-            socketIoClient.Dispose();//Client-SocketIOEvent.DISCONNECT：EngineIOSharp.Common.EngineIOException: Forced close
-        }
-    });
-    socketIoClient.On(SocketIOEvent.ERROR, (JToken[] data) =>
-    {
-        Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff}>SocketIO>Error：[{data[0]}]");
-    });
-    socketIoClient.On("message", (data) =>
-    {
-        foreach (JToken token in data)
-        {
-            Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff}>SocketIO>message：" + (token.Type == JTokenType.Bytes ? BitConverter.ToString(token.ToObject<byte[]>()) : token));
-        }
-    });
-    socketIoClient.Connect();
+        Console.WriteLine(11);
+    }
 }
 #endregion
 
