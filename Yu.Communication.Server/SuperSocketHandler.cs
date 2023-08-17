@@ -20,7 +20,7 @@ namespace Yu.Communication.Server
         private IConfiguration Configuration { get; }
         private FreeRedis.RedisClient[] _rdbs;
         /// <summary>
-        /// 直接实例化方式：await new SuperSocketHandler().StartServer(port, certName, certPwd);
+        /// await new SuperSocketHandler().StartServer(port, certName, certPwd);
         /// </summary>
         public SuperSocketHandler()
         {
@@ -30,14 +30,11 @@ namespace Yu.Communication.Server
         }
 
         /// <summary>
-        /// 依赖注入方式
+        /// IServiceCollection.AddSingleton&lt;SuperSocketHandler&lt;();<br/>
+        /// private readonly SuperSocketHandler _superSocketHandler;<br/>
+        /// public Worker(SuperSocketHandler superSocketHandler){ _superSocketHandler = superSocketHandler; }<br/>
+        /// await _superSocketHandler.StartServer(port, certName);<br/>
         /// </summary>
-        /// <remarks>
-        /// IServiceCollection.AddSingleton<SuperSocketHandler>();
-        /// private readonly SuperSocketHandler _superSocketHandler;
-        /// public Worker(SuperSocketHandler superSocketHandler){ _superSocketHandler = superSocketHandler; }
-        /// await _superSocketHandler.StartServer(port, certName);
-        /// </remarks>
         public SuperSocketHandler(ILogger<SuperSocketHandler> logger, IConfiguration configuration, FreeRedis.RedisClient[] rdbs)
         {
             _logger = logger;

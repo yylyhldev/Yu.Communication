@@ -11,9 +11,9 @@ namespace Yu.Communication.Server
     {
         public static ConcurrentDictionary<string, SocketIOSocket> ConnectionDic = new();
         /// <summary>
-        /// 当前服务实例需忽略这条订阅消息
+        /// 当前服务实例需忽略的队列消息
         /// </summary>
-        public static ConcurrentQueue<string> SkipKickedOffline = new();
+        public static ConcurrentQueue<string> Ignoreds => new();
         /// <summary>
         /// 当前服务实例Id
         /// </summary>
@@ -23,7 +23,7 @@ namespace Yu.Communication.Server
         private IConfiguration Configuration { get; }
         private FreeRedis.RedisClient[] _rdbs;
         /// <summary>
-        /// 直接实例化方式：await new SocketIOHandler().StartServer();
+        /// await new SocketIOHandler().StartServer();
         /// </summary>
         public SocketIOHandler()
         {
@@ -33,14 +33,11 @@ namespace Yu.Communication.Server
         }
 
         /// <summary>
-        /// 依赖注入方式
+        /// IServiceCollection.AddSingleton&lt;SocketIOHandler&gt;();<br/>
+        /// private readonly SocketIOHandler _socketIOHandler;<br/>
+        /// public Worker(SocketIOHandler socketIOHandler){ _socketIOHandler = socketIOHandler; }<br/>
+        /// await _socketIOHandler.StartServer();<br/>
         /// </summary>
-        /// <remarks>
-        /// IServiceCollection.AddSingleton<SocketIOHandler>();
-        /// private readonly SocketIOHandler _socketIOHandler;
-        /// public Worker(SocketIOHandler socketIOHandler){ _socketIOHandler = socketIOHandler; }
-        /// await _socketIOHandler.StartServer();
-        /// </remarks>
         public SocketIOHandler(ILogger<SocketIOHandler> logger, IConfiguration configuration, FreeRedis.RedisClient[] rdbs)
         {
             _logger = logger;
@@ -119,27 +116,51 @@ namespace Yu.Communication.Server
         }
         #endregion
 
-        #region 多实例/集群部署时：用Redis发布订阅实现踢下线
+        #region 多实例/集群部署时：用Redis[发布订阅/过期监听]实现踢下线
         /// <summary>
-        /// 订阅频道---多实例/集群部署时：用Redis发布订阅实现踢下线
+        /// 订阅频道---多实例/集群部署时：用Redis[发布订阅/过期监听]实现踢下线
         /// </summary>
-        /// <remarks>1.服务端实例订阅[频道A]；<br/>2.客户端上线时，当前服务实例先做检查，无重复的再向[频道A]发送客户端信息；<br/>3.其他订阅[频道A]的服务实例检查客户端信息，如有则踢下线；</remarks>
+        /// <remarks>
+        /// 【发布订阅】<br/>
+        /// 1.服务端实例订阅[频道A]；<br/>
+        /// 2.客户端上线时，当前服务实例先做检查，无重复的再向[频道A]发送客户端信息；<br/>
+        /// 3.订阅[频道A]的服务实例收到[非自身发出的]消息后，检查客户端信息，如有则踢下线；<br/>
+        /// <br/>
+        /// 【过期监听】<br/>
+        /// 1.服务端实例订阅[过期事件]；<br/>
+        /// 2.客户端上线时，当前服务实例先做检查，无重复的再向[写客户端缓存]；<br/>
+        /// 3.订阅[过期事件]的服务实例收到[非自身发出的]消息后，检查客户端信息，如有则踢下线；<br/>
+        /// </remarks>
         public void KickedOffline()
         {
-            _rdbs[2].Subscribe($"evt_KickedOff", (chan, msg) =>
+            _rdbs[2].Subscribe($"evt_KickedOff", async (chan, msg) =>
             {
-                var key = msg + string.Empty;
-                var has = SkipKickedOffline.TryDequeue(out _);
-                //var has = await _rdbs[2].ExistsAsync($"{ServerId}_off_{key}");
-                if (!has && ConnectionDic.TryRemove(key, out var oldClient))
-                {
-                    _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}] Client {key}已在别处上线]({ConnectionDic.Count})");
-                    oldClient.Emit("message", "来了老弟");
-                    oldClient.Close();
-                }
+                if (!Ignoreds.TryDequeue(out _)) await Offline(msg + string.Empty, "已在别处上线");
             });
+            //_ = _rdbs[15].Subscribe($"__keyevent@15__:expired", async (chan, msg) =>
+            //{
+            //    var key = msg + string.Empty;//$"{ServerId}_off_{wsKey}"
+            //    if (!string.IsNullOrWhiteSpace(key))
+            //    {
+            //        var sid = key.Split('_')[0];
+            //        if (!string.IsNullOrWhiteSpace(sid) && sid != ServerId)
+            //        {
+            //            await Offline(key.Split('_')[2], "已在别处上线");
+            //        }
+            //    }
+            //});
         }
         #endregion
+
+        private async Task Offline(string key, string? msg = null)
+        {
+            if (ConnectionDic.TryRemove(key, out var oldClient))
+            {
+                _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}] [{key}]{msg}({ConnectionDic.Count})");
+                oldClient.Emit("message", msg);
+                oldClient.Close();
+            }
+        }
 
         #region 校验通过后 - 无[server.OnConnecting]方式
         private async Task AfterAuth(SocketIOSocket socket, string wsKey, CancellationToken cancellationToken)
@@ -170,8 +191,8 @@ namespace Yu.Communication.Server
             }
             else
             {
-                SkipKickedOffline.Enqueue($"{ServerId}_off_{wsKey}");//当前实例忽略这条订阅消息
-                //await _rdbs[2].SetAsync($"{ServerId}_off_{wsKey}", 0, 3);//当前实例忽略这条订阅消息
+                //await _rdbs[2].SetAsync($"{ServerId}_off_{wsKey}", 0, 1);//监听过期
+                Ignoreds.Enqueue($"{ServerId}_off_{wsKey}");
                 await _rdbs[2].PublishAsync($"evt_KickedOff", wsKey);
             }
             _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}] 连接数：{ConnectionDic.Count}");

@@ -88,9 +88,9 @@ namespace Yu.Communication.Server.Web
         internal static ConcurrentQueue<int> WaitConnectUsers = new();
         private static ConcurrentDictionary<int, HubCallerContext> ConnectionDic = new();
         /// <summary>
-        /// 当前服务实例需忽略这条订阅消息
+        /// 当前服务实例需忽略的队列消息
         /// </summary>
-        private static ConcurrentQueue<string> SkipKickedOffline = new();
+        private static ConcurrentQueue<string> Ignoreds => new();
         /// <summary>
         /// 当前服务实例Id
         /// </summary>
@@ -102,8 +102,8 @@ namespace Yu.Communication.Server.Web
         //{
         //    _logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<SingalRHandler>();
         //    Configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json", optional: true, reloadOnChange: true).Build();
-        //    rdbs = Shared.Redis.RedisClients2.Dbs;
-        //    KickedOffClient();
+        //    _rdbs = RedisClients.Dbs;
+        //    KickedOffline();
         //}
         public SingalRHandler(ILogger<SingalRHandler> logger, IConfiguration configuration, FreeRedis.RedisClient[] rdbs)
         {
@@ -135,8 +135,8 @@ namespace Yu.Communication.Server.Web
             }
             else
             {
-                SkipKickedOffline.Enqueue($"{ServerId}_off_{userId}");//当前实例忽略这条订阅消息
-                //await _rdbs[2].SetAsync($"{ServerId}_off_{userId}", 0, 3);//当前实例忽略这条订阅消息
+                //await _rdbs[2].SetAsync($"{ServerId}_off_{userId}", 0, 1);//监听过期
+                Ignoreds.Enqueue($"{ServerId}_off_{userId}");
                 await _rdbs[2].PublishAsync($"evt_KickedOff", userId.ToString());
             }
             #endregion
@@ -149,26 +149,53 @@ namespace Yu.Communication.Server.Web
             await Groups.RemoveFromGroupAsync(oldClient.ConnectionId, "GroupName");
             oldClient.Abort();
         }
-        #region 多实例/集群部署时：用Redis发布订阅实现踢下线
+        private async Task Offline(int userId, string? msg = null)
+        {
+            if (ConnectionDic.TryRemove(userId, out var oldClient))
+            {
+                _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}][{userId}]{msg}]({ConnectionDic.Count})");
+                await Clients.Client(oldClient.ConnectionId).SendAsync("close", msg);
+                await Offline(oldClient);
+            }
+        }
+        #region 多实例/集群部署时：用Redis[发布订阅/过期监听]实现踢下线
         /// <summary>
-        /// 订阅频道---多实例/集群部署时：用Redis发布订阅实现踢下线
+        /// 订阅频道---多实例/集群部署时：用Redis[发布订阅/过期监听]实现踢下线
         /// </summary>
-        /// <remarks>1.服务端实例订阅[频道A]；<br/>2.客户端上线时，当前服务实例先做检查，无重复的再向[频道A]发送客户端信息；<br/>3.其他订阅[频道A]的服务实例检查客户端信息，如有则踢下线；</remarks>
+        /// <remarks>
+        /// 【发布订阅】<br/>
+        /// 1.服务端实例订阅[频道A]；<br/>
+        /// 2.客户端上线时，当前服务实例先做检查，无重复的再向[频道A]发送客户端信息；<br/>
+        /// 3.订阅[频道A]的服务实例收到[非自身发出的]消息后，检查客户端信息，如有则踢下线；<br/>
+        /// <br/>
+        /// 【过期监听】<br/>
+        /// 1.服务端实例订阅[过期事件]；<br/>
+        /// 2.客户端上线时，当前服务实例先做检查，无重复的再向[写客户端缓存]；<br/>
+        /// 3.订阅[过期事件]的服务实例收到[非自身发出的]消息后，检查客户端信息，如有则踢下线；<br/>
+        /// </remarks>
         public void KickedOffline()
         {
             _rdbs[2].Subscribe($"evt_KickedOff", async (chan, msg) =>
             {
-                var key = msg + string.Empty;
-                _ = int.TryParse(key, out int userId);
-                var has = SkipKickedOffline.TryDequeue(out _);
-                //var has = await _rdbs[2].ExistsAsync($"{ServerId}_off_{key}");
-                if (!has && ConnectionDic.TryRemove(userId, out var oldClient))
+                if (!Ignoreds.TryDequeue(out _))
                 {
-                    _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}] Client {key}已在别处上线]({ConnectionDic.Count})");
-                    await Clients.Client(oldClient.ConnectionId).SendAsync("close", "已在别处上线");
-                    await Offline(oldClient);
+                    _ = int.TryParse(msg + string.Empty, out int userId);
+                    await Offline(userId, "已在别处上线");
                 }
             });
+            //_ = _rdbs[15].Subscribe($"__keyevent@15__:expired", async (chan, msg) =>
+            //{
+            //    var key = msg + string.Empty;//$"{ServerId}_off_{userId}"
+            //    if (!string.IsNullOrWhiteSpace(key))
+            //    {
+            //        var sid = key.Split('_')[0];
+            //        if (!string.IsNullOrWhiteSpace(sid) && sid != ServerId)
+            //        {
+            //            _ = int.TryParse(key.Split('_')[2], out int userId);
+            //            await Offline(userId, "已在别处上线");
+            //        }
+            //    }
+            //});
         }
         #endregion
 

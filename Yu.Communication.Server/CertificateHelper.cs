@@ -52,7 +52,7 @@ namespace Yu.Communication.Server
         /// <returns>证书</returns>
         internal static X509Certificate2? GetCertificateFromStore(string certName, bool validOnly = true)
         {
-            if (string.IsNullOrWhiteSpace(certName)) return null;
+            if (string.IsNullOrWhiteSpace(certName)) return default;
             X509Certificate2Collection signingCerts = GetCertificatesFromStore(certName, validOnly = true);
             return signingCerts.Any() ? signingCerts[0] : null;
         }
@@ -64,7 +64,7 @@ namespace Yu.Communication.Server
         /// <returns>证书</returns>
         public static X509Certificate2Collection GetCertificatesFromStore(string certName, bool validOnly = true)
         {
-            if (string.IsNullOrWhiteSpace(certName)) return null;
+            if (string.IsNullOrWhiteSpace(certName)) return new X509Certificate2Collection();
             var store = new X509Store(StoreName.My);
             try
             {
@@ -85,7 +85,7 @@ namespace Yu.Communication.Server
         }
         private static X509Certificate2Collection FindCertificate(X509Certificate2Collection certificates, string certName, bool validOnly = true)
         {
-            if (certificates == null) return default;
+            if (certificates == null) return new X509Certificate2Collection();
             //CN=*.domain.com, O=xxxx有限公司, L=杭州市, S=浙江省, C=CN
             var curCertificates = certificates.Find(X509FindType.FindBySubjectDistinguishedName, certName, validOnly);
             //*.domain.com
@@ -94,29 +94,46 @@ namespace Yu.Communication.Server
             return certificates;
         }
         /// <summary>
-        /// 读取ssl证书
+        /// 获取证书
         /// </summary>
         /// <param name="certFile">证书名</param>
         /// <param name="certPwd">证书密码</param>
         internal static X509Certificate2? GetCertificate(string certFile, string? certPwd = null)
         {
             //CN=*.yylyhl.com//CN=*.yylyhl.com, O=xxxx有限公司, L=杭州市, S=浙江省, C=CN
-            if (string.IsNullOrWhiteSpace(certFile)) return null;
-            var certificate = new X509Certificate2(certFile, certPwd, X509KeyStorageFlags.Exportable);
+            if (string.IsNullOrWhiteSpace(certFile)) return default;
+            var certificate = new X509Certificate2(certFile, certPwd, X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
             return certificate;
         }
         /// <summary>
-        /// 读取ssl证书
+        /// 获取证书Hash
         /// </summary>
         /// <param name="certFile">证书名</param>
         /// <param name="certPwd">证书密码</param>
-        internal static byte[]? GetCertificate2(string certFile, string? certPwd = null)
+        internal static byte[]? GetCertificateHash(string certFile, string? certPwd = null)
         {
-            //CN=*.yylyhl.com//CN=*.yylyhl.com, O=xxxx有限公司, L=杭州市, S=浙江省, C=CN
-            if (string.IsNullOrWhiteSpace(certFile)) return null;
-            var certificate = new X509Certificate2(certFile, certPwd, X509KeyStorageFlags.Exportable);
-            var certBytes = certificate.Export(X509ContentType.Pfx);
-            return certBytes;
+            var certificate = GetCertificate(certFile, certPwd);
+            if (certificate == null) return default;
+            var certificateHash = certificate.GetCertHash();//证书哈希
+            //var certificateHash = certificate.Export(X509ContentType.Pfx);
+            return certificateHash;
+        }
+        /// <summary>
+        /// 获取证书名
+        /// </summary>
+        /// <param name="certFile">证书名</param>
+        /// <param name="certPwd">证书密码</param>
+        internal static string? GetCertificateName(string certFile, string? certPwd = null)
+        {
+            var certificate = GetCertificate(certFile, certPwd);
+            return certificate?.Subject;
+            //if (certificate == null) return default;
+            //var store = new X509Store(StoreName.AuthRoot, StoreLocation.LocalMachine);
+            //store.Open(OpenFlags.OpenExistingOnly | OpenFlags.ReadWrite);
+            //store.Add(certificate);
+            //var certificateName = store.Name;
+            //store.Close();
+            //return certificateName;
         }
         #endregion
     }

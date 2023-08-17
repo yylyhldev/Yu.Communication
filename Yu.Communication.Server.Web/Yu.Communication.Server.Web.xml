@@ -38,9 +38,9 @@
             待连接userId队列：[InvokeAsync校验通过后入队(WaitConnectUsers.Enqueue(userId)) ==》 OnConnectedAsync出队建立连接(WaitConnectUsers.TryDequeue(out var userId))]
             </summary>
         </member>
-        <member name="F:Yu.Communication.Server.Web.SingalRHandler.SkipKickedOffline">
+        <member name="P:Yu.Communication.Server.Web.SingalRHandler.Ignoreds">
             <summary>
-            当前服务实例需忽略这条订阅消息
+            当前服务实例需忽略的队列消息
             </summary>
         </member>
         <member name="P:Yu.Communication.Server.Web.SingalRHandler.ServerId">
@@ -50,18 +50,28 @@
         </member>
         <member name="M:Yu.Communication.Server.Web.SingalRHandler.KickedOffline">
             <summary>
-            订阅频道---多实例/集群部署时：用Redis发布订阅实现踢下线
+            订阅频道---多实例/集群部署时：用Redis[发布订阅/过期监听]实现踢下线
             </summary>
-            <remarks>1.服务端实例订阅[频道A]；<br/>2.客户端上线时，当前服务实例先做检查，无重复的再向[频道A]发送客户端信息；<br/>3.其他订阅[频道A]的服务实例检查客户端信息，如有则踢下线；</remarks>
+            <remarks>
+            【发布订阅】<br/>
+            1.服务端实例订阅[频道A]；<br/>
+            2.客户端上线时，当前服务实例先做检查，无重复的再向[频道A]发送客户端信息；<br/>
+            3.订阅[频道A]的服务实例收到[非自身发出的]消息后，检查客户端信息，如有则踢下线；<br/>
+            <br/>
+            【过期监听】<br/>
+            1.服务端实例订阅[过期事件]；<br/>
+            2.客户端上线时，当前服务实例先做检查，无重复的再向[写客户端缓存]；<br/>
+            3.订阅[过期事件]的服务实例收到[非自身发出的]消息后，检查客户端信息，如有则踢下线；<br/>
+            </remarks>
         </member>
         <member name="T:Yu.Communication.Server.Web.WebsocketHandler">
             <summary>
             Websocket Server
             </summary>
         </member>
-        <member name="F:Yu.Communication.Server.Web.WebsocketHandler.SkipKickedOffline">
+        <member name="P:Yu.Communication.Server.Web.WebsocketHandler.Ignoreds">
             <summary>
-            当前服务实例需忽略这条订阅消息
+            当前服务实例需忽略的队列消息
             </summary>
         </member>
         <member name="P:Yu.Communication.Server.Web.WebsocketHandler.ServerId">
@@ -84,9 +94,28 @@
         </member>
         <member name="M:Yu.Communication.Server.Web.WebsocketHandler.KickedOffline">
             <summary>
-            订阅频道---多实例/集群部署时：用Redis发布订阅实现踢下线
+            订阅频道---多实例/集群部署时：用Redis[发布订阅/过期监听]实现踢下线
             </summary>
-            <remarks>1.服务端实例订阅[频道A]；<br/>2.客户端上线时，当前服务实例先做检查，无重复的再向[频道A]发送客户端信息；<br/>3.其他订阅[频道A]的服务实例检查客户端信息，如有则踢下线；</remarks>
+            <remarks>
+            【发布订阅】<br/>
+            1.服务端实例订阅[频道A]；<br/>
+            2.客户端上线时，当前服务实例先做检查，无重复的再向[频道A]发送客户端信息；<br/>
+            3.订阅[频道A]的服务实例收到[非自身发出的]消息后，检查客户端信息，如有则踢下线；<br/>
+            <br/>
+            【过期监听】<br/>
+            1.服务端实例订阅[过期事件]；<br/>
+            2.客户端上线时，当前服务实例先做检查，无重复的再向[写客户端缓存]；<br/>
+            3.订阅[过期事件]的服务实例收到[非自身发出的]消息后，检查客户端信息，如有则踢下线；<br/>
+            </remarks>
+        </member>
+        <member name="M:AppBuilderExtensions.UseServ``1(Microsoft.AspNetCore.Builder.IApplicationBuilder,System.Action{``0})">
+            <summary>
+            configure(app.ApplicationServices.GetRequiredService&lt;ServiceType&gt;());
+            </summary>
+            <typeparam name="T"></typeparam>
+            <param name="app"></param>
+            <param name="configure"></param>
+            <returns>IApplicationBuilder</returns>
         </member>
     </members>
 </doc>

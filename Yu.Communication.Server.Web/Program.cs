@@ -88,15 +88,17 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapGet("/", () => "Hello World!");
-#region WebSockets
+
+#region WebSockets [http+https]
 app.UseWebSockets();
 app.Map(WebsocketHandler.Pattern, builder => builder.UseMiddleware<WebsocketHandler>());
 #endregion
-#region SingalR 启用&鉴权Middleware
+#region SingalR 启用&鉴权Middleware [http+https]
 app.MapHub<SingalRHandler>(SingalRHandler.Pattern);
 //app.UseMiddleware<SingalRAuthorizationMiddleware>();//鉴权需与 builder.Services.AddJwtConfigure 二选一
 #endregion
-#region mqtt 启用
+
+#region mqtt 启用 [http+https]
 //方式一
 await app.Services.GetRequiredService<MqttHandler>().StartServer();
 ////方式二 
@@ -104,20 +106,41 @@ await app.Services.GetRequiredService<MqttHandler>().StartServer();
 ////app.MapConnectionHandler<MqttConnectionHandler>("/mqtt", options => config.WebSockets.SubProtocolSelector = protocolList => protocolList.FirstOrDefault() ?? string.Empty);
 //app.UseMqttServer(mqtt => mqttServerHandler.ConfigureHandler(mqtt));
 #endregion
-#region SocketIO 启用
-//app.UseServ<SocketIOHandler>(async socketIO => await socketIO.StartServer(app.Lifetime.ApplicationStopping));
-var socketIO = app.Services.GetRequiredService<SocketIOHandler>();
-await socketIO.StartServer(app.Lifetime.ApplicationStopping);
+
+#region SocketIO 启用 [http+https]
+app.UseServ<SocketIOHandler>(async socketIO => await socketIO.StartServer(app.Lifetime.ApplicationStopping));
+//var socketIO = app.Services.GetRequiredService<SocketIOHandler>();
+//await socketIO.StartServer(app.Lifetime.ApplicationStopping);
 #endregion
 
-#region SuperSocket 启用
-//app.UseServ<SuperSocketHandler>(async superSocket => await superSocket.StartServer(app.Lifetime.ApplicationStopping));
-var superSocket = app.Services.GetRequiredService<SuperSocketHandler>();
-await superSocket.StartServer(app.Lifetime.ApplicationStopping);
+#region SuperSocket 启用 [http+https]
+app.UseServ<SuperSocketHandler>(async superSocket => await superSocket.StartServer(app.Lifetime.ApplicationStopping));
+//var superSocket = app.Services.GetRequiredService<SuperSocketHandler>();
+//await superSocket.StartServer(app.Lifetime.ApplicationStopping);
 #endregion
-#region Socket 启用
-//app.UseServ<SocketHandler>(async socket => await socket.StartServer(app.Lifetime.ApplicationStopping));
-var socket = app.Services.GetRequiredService<SocketHandler>();
-await socket.StartServer(app.Lifetime.ApplicationStopping);
+
+#region Socket 启用 [http+https]
+app.UseServ<SocketHandler>(async socket => await socket.StartServer(app.Lifetime.ApplicationStopping));
+//var socket = app.Services.GetRequiredService<SocketHandler>();
+//await socket.StartServer(app.Lifetime.ApplicationStopping);
 #endregion
+
 app.Run();
+
+
+public static class AppBuilderExtensions
+{
+    /// <summary>
+    /// configure(app.ApplicationServices.GetRequiredService&lt;ServiceType&gt;());
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="app"></param>
+    /// <param name="configure"></param>
+    /// <returns>IApplicationBuilder</returns>
+    public static IApplicationBuilder UseServ<T>(this IApplicationBuilder app, Action<T> configure)
+    {
+        var server = app.ApplicationServices.GetRequiredService<T>();
+        configure(server);
+        return app;
+    }
+}

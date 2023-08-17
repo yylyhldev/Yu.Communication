@@ -18,7 +18,7 @@ namespace Yu.Communication.Server
         private IConfiguration Configuration { get; }
         private FreeRedis.RedisClient[] _rdbs;
         /// <summary>
-        /// 直接实例化方式：await new SocketHandler().StartServer(port, certName);
+        /// await new SocketHandler().StartServer(port, certName);
         /// </summary>
         public SocketHandler()
         {
@@ -28,14 +28,11 @@ namespace Yu.Communication.Server
         }
 
         /// <summary>
-        /// 依赖注入方式
+        /// IServiceCollection.AddSingleton&lt;SocketHandler&gt;();<br/>
+        /// private readonly SocketHandler _socketHandler;<br/>
+        /// public Worker(SocketHandler socketHandler){ _socketHandler = socketHandler; }<br/>
+        /// await _socketHandler.StartServer(port, certName);<br/>
         /// </summary>
-        /// <remarks>
-        /// IServiceCollection.AddSingleton<SocketHandler>();
-        /// private readonly SocketHandler _socketHandler;
-        /// public Worker(SocketHandler socketHandler){ _socketHandler = socketHandler; }
-        /// await _socketHandler.StartServer(port, certName);
-        /// </remarks>
         public SocketHandler(ILogger<SocketHandler> logger, IConfiguration configuration, FreeRedis.RedisClient[] rdbs)
         {
             _logger = logger;
