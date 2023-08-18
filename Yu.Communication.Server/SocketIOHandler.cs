@@ -59,7 +59,8 @@ namespace Yu.Communication.Server
                     CertFile = Configuration.GetValue<string>("CertFile"),
                     CertPwd = Configuration.GetValue<string>("CertPwd")
                 };
-                var options = new SocketIOServerOption(conf.UseSsl ? portSSl : port, Secure: false, ServerCertificate: CertificateHelper.GetCertificateFromStore(conf.CertName), ClientCertificateValidationCallback: CertificateHelper.ValidateRemoteCertificate, VerificationTimeout: 500, AllowEIO3: true);
+                ulong verificationMs = 1500;
+                var options = new SocketIOServerOption(conf.UseSsl ? portSSl : port, Secure: false, ServerCertificate: CertificateHelper.GetCertificateFromStore(conf.CertName), ClientCertificateValidationCallback: CertificateHelper.ValidateRemoteCertificate, VerificationTimeout: verificationMs, AllowEIO3: true);
                 //var options = new SocketIOServerOption(conf.UseSsl ? portSSl : port, Secure: conf.UseSsl, ServerCertificate: CertificateHelper.GetCertificate(conf.CertFile,conf.CertPwd), ClientCertificateValidationCallback: ValidateRemoteCertificate);
                 Server = new SocketIOServer(options);
                 #region 鉴权处理 [server.OnConnecting]方式
@@ -79,10 +80,11 @@ namespace Yu.Communication.Server
                 #endregion
                 Server.OnConnection(async (socket) =>
                 {
+                    _logger.LogInformation($"{DateTime.Now:HH:mm:ss.fff}>SocketIO Client 验证通过了 {socket.ReadyState}");
+                    await Task.Delay(30, cancellationToken);
                     var key = DateTime.Now.Ticks.ToString();
-                    //socket.Emit("message", "走你，断开");
                     #region 鉴权后 [server.OnConnecting]方式
-                    if (!WaitConnectUsers.TryDequeue(out var userId) || userId < 1)
+                    if (verificationMs > 0 && (!WaitConnectUsers.TryDequeue(out var userId) || userId < 1))
                     {
                         _logger.LogInformation($"走你：<{userId}>");
                         await Task.Delay(30, cancellationToken);
@@ -99,7 +101,7 @@ namespace Yu.Communication.Server
                     {
                         _logger.LogInformation($"{DateTime.Now:HH:mm:ss.fff}>SocketIO>Error：[{data[0]}]");
                     });
-                    _logger.LogInformation($"{DateTime.Now:HH:mm:ss.fff}>SocketIO Client 已连接");
+                    _logger.LogInformation($"{DateTime.Now:HH:mm:ss.fff}>SocketIO Client 已连接 ({ConnectionDic.Count})");
                     await AfterAuth(socket, key, cancellationToken);
                     //socket.Off("auth", () => { });
                     //HandleAuth(socket, key, cancellationToken);//无[server.OnConnecting]方式
@@ -173,7 +175,7 @@ namespace Yu.Communication.Server
             });
             socket.On("message", (data) =>
             {
-                _logger.LogInformation($"SocketIO Server On-mesage:[{data[0]}]");
+                _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}] SocketIO Server On-mesage:[{data[0]}]");
             });
             #region 同一个客户端以最后一个连接为准
             //if (ConnectionDic.TryRemove(wsKey, out var oldClient))
@@ -197,12 +199,8 @@ namespace Yu.Communication.Server
                 Ignoreds.Enqueue($"{ServerId}_off_{wsKey}");
                 await _rdbs[2].PublishAsync($"evt_KickedOff", wsKey);
             }
-            _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}] {socket.ReadyState}");
-            _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}] 连接数：{ConnectionDic.Count}");
             #endregion
-            await Task.Delay(30, cancellationToken);
             socket.Emit("message", "来了老弟");
-            _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}] {socket.ReadyState}");
             //await Task.Delay(50000, cancellationToken);
             //socket.Emit("close", "走你");
             //socket.Close();//Client-SocketIOEvent.DISCONNECT：EngineIOSharp.Common.EngineIOException: Transport close
