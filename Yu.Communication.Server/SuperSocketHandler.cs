@@ -45,12 +45,13 @@ namespace Yu.Communication.Server
         {
             var serverOptions = Configuration.GetSection("SuperSocketOptions").Get<ServerOptions>() ?? new ServerOptions();
             host = SuperSocketHostBuilder.Create<StringPackageInfo, CommandLinePipelineFilter>()
-                .UseHostedService<SsService<StringPackageInfo>>()
+                //.UseHostedService<SsService<StringPackageInfo>>()
                 //.UseSession<SsAppSession>()
                 //.UseSession<SuperSocketHandler>()
-                //.UseSessionHandler(SessionConnectedAsync, SessionClosedAsync)
+                .UseSessionHandler(SessionConnectedAsync, SessionClosedAsync)
                 .UsePackageHandler(OnReceivedMessage)
-                .UseCommand((commandOptions) => {
+                .UseCommand((commandOptions) => 
+                {
                     //commandOptions.AddCommand<SuperSocketHandler>();//注册单个命令
                     //commandOptions.AddCommandAssembly(typeof(SuperSocketHandler).GetTypeInfo().Assembly);//注册程序集中的所有命令
                 })
@@ -141,32 +142,33 @@ namespace Yu.Communication.Server
         /// <returns></returns>
         private async ValueTask OnReceivedMessage(IAppSession appSession, StringPackageInfo package)
         {
+            _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}]SuperSocket Server 收：{package.Body}");
+            if (appSession.State != SessionState.Connected || (string.Compare(package.Key, "LOGIN") != 0 && !ConnectionDic.Any(d => d.Value.SessionID == appSession.SessionID))) return;
             //注册用于处理接收到的数据包处理器
             var result = 0;
             switch (package.Key.ToUpper())
             {
                 case "ADD":
-                    result = package.Parameters.Select(d => int.Parse(d)).Sum();
+                    result = package.Parameters.Select(d => Convert.ToInt32(d)).Sum();
                     break;
                 case "SUB":
-                    result = package.Parameters.Select(d => int.Parse(d)).Aggregate((x, y) => x - y);
+                    result = package.Parameters.Select(d => Convert.ToInt32(d)).Aggregate((x, y) => x - y);
                     break;
                 case "MULT":
-                    result = package.Parameters.Select(d => int.Parse(d)).Aggregate((x, y) => x * y);
+                    result = package.Parameters.Select(d => Convert.ToInt32(d)).Aggregate((x, y) => x * y);
                     break;
                 case "DIV":
-                    result = package.Parameters.Select(d => int.Parse(d)).Aggregate((x, y) => x / y);
+                    result = package.Parameters.Select(d => Convert.ToInt32(d)).Aggregate((x, y) => x / y);
                     break;
                 case "LOGIN":
-                    _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}]SuperSocket Server LOGIN-消息：{package.Body}");
                     var name = package.Parameters[0];
                     var pwd = package.Parameters.Length > 1 ? package.Parameters[1] : string.Empty;
                     if (name != "aaa" || pwd != "ppp")
                     {
                         await appSession.SendAsync(System.Text.Encoding.UTF8.GetBytes($"账密有误，关闭连接\r\n"));
-                        await Task.Delay(500);
                         _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}]SuperSocket Server 账密有误，关闭连接：{name},{pwd}");
                         await appSession.CloseAsync(CloseReason.ServerShutdown);
+                        appSession.Reset();
                     }
                     else
                     {
@@ -189,7 +191,7 @@ namespace Yu.Communication.Server
                     }
                     break;
                 case "MSG":
-                    _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}]SuperSocket Server MSG-消息：{package.Body}");
+                    //todo:handle msg
                     break;
             }
         }
@@ -211,12 +213,12 @@ namespace Yu.Communication.Server
         #region 处理会话事件-通过扩展SuperSocket.Server.AppSession：重写会话事件，SuperSocketHostBuilder.UseSession<SuperSocketHandler>();
         //protected override ValueTask OnSessionConnectedAsync()
         //{
-        //    logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}]SuperSocket Client 已连接[{SessionCount},{SessionID}, {StartTime}, {RemoteEndPoint}]");
+        //    _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}]SuperSocket Client 已连接[{Server.SessionCount},{SessionID}, {StartTime}, {RemoteEndPoint}]");
         //    return base.OnSessionConnectedAsync();
         //}
         //protected override ValueTask OnSessionClosedAsync(CloseEventArgs e)
         //{
-        //    logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}]SuperSocket Client 已断开[{SessionCount},{SessionID}, {StartTime}~{LastActiveTime}, {RemoteEndPoint}：{e.Reason}]");
+        //    _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}]SuperSocket Client 已断开[{Server.SessionCount},{SessionID}, {StartTime}~{LastActiveTime}, {RemoteEndPoint}：{e.Reason}]");
         //    return base.OnSessionClosedAsync(e);
         //    return ValueTask.CompletedTask;
         //}

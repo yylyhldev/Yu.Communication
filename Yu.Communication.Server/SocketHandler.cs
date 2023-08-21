@@ -181,6 +181,7 @@ namespace Yu.Communication.Server
                     catch (AuthenticationException aex)
                     {
                         _logger.LogWarning($"{DateTime.Now:HH:mm:ss.fff} Socket TcpClient Authentication failed - closing the connection.");
+                        _logger.LogWarning($"{DateTime.Now:HH:mm:ss.fff} {aex}");
                         sslStream?.Close();
                     }
                     catch (Exception aex)

@@ -46,9 +46,6 @@ Console.WriteLine($"开始[{host} | {useSsl} | {certName}]");
 //await BatchExec(1, async () => await TestMqtt(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:MqttPort{portSsl}"), tokenVal));//Mqtt
 //await BatchExec(1, () => TestSocketIO(host, useSsl, Configuration.GetValue<ushort>($"CommunicationServers:SocketIOPort{portSsl}")));//SocketIO
 
-await BatchExec(1, async () => await TestSocket(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:SuperSocketPort{portSsl}")));//SuperSocket
-//await BatchExec(1, async () => await TestSocket(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:SocketPort{portSsl}")));//Socket
-
 //await BatchExec(1, async () => await TestSocketTcpClient(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:SuperSocketPort{portSsl}")));//SuperSocket
 //await BatchExec(1, async () => await TestSocketTcpClient(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:SocketPort{portSsl}")));//Socket
 Thread.Sleep(1000);
@@ -344,6 +341,11 @@ void TestSocketIO(string host, bool useSsl, ushort serverPort)
 #region Socket/SuperSocket-TcpClient
 async Task TestSocketTcpClient(string host, bool useSsl, int serverPort)
 {
+    if (!useSsl)
+    {
+        await TestSocketNonSsl(host, serverPort);
+        return;
+    }
     Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client Connecting......");
     //var client = new TcpClient(host, serverPort);
     var client = new TcpClient();
@@ -433,11 +435,11 @@ async Task TestSocketTcpClient(string host, bool useSsl, int serverPort)
     #region 发消息
     await Task.Delay(100);
     if (!client.Connected) return;
-    Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client Send LOGIN aaa ppp2 {client.Client.LocalEndPoint}");
-    if (useSsl) await sslStream.WriteAsync(Encoding.UTF8.GetBytes($"LOGIN aaa ppp2 {client.Client.LocalEndPoint}\r\n"));
-    else await stream.WriteAsync(Encoding.UTF8.GetBytes($"LOGIN aaa ppp2 {client.Client.LocalEndPoint}\r\n"));
+    var sendMsg = $"LOGIN aaa3 ppp3";
+    Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client Send [{sendMsg}] {client.Client.LocalEndPoint}");
+    if (useSsl) await sslStream.WriteAsync(Encoding.UTF8.GetBytes($"{sendMsg} {client.Client.LocalEndPoint}\r\n"));
+    else await stream.WriteAsync(Encoding.UTF8.GetBytes($"{sendMsg} {client.Client.LocalEndPoint}\r\n"));
     await Task.Delay(100);
-    if (!client.Connected) return;
     Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client Send MSG hello world {client.Client.LocalEndPoint}");
     if (useSsl) await sslStream.WriteAsync(Encoding.UTF8.GetBytes($"MSG hello world {client.Client.LocalEndPoint}\r\n"));
     else await stream.WriteAsync(Encoding.UTF8.GetBytes($"MSG hello world {client.Client.LocalEndPoint}\r\n"));
@@ -466,11 +468,12 @@ async Task SocketReceiveTcpClientAsync(TcpClient client, SslStream? sslStream = 
         try
         {
             var received = sslStream != null ? await sslStream.ReadAsync(buffer) : await stream.ReadAsync(buffer);
+            if (received <= 0) continue;
             var response = Encoding.Default.GetString(buffer);
-            Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client 接收到服务器数据: {response}");
+            Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client 收: {response}");
             if (response == "<|ACK|>")
             {
-                Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client 接收到服务器数据 acknowledgment: \"{response}\"");
+                Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client 收 acknowledgment: \"{response}\"");
                 break;
             }
         }
@@ -496,13 +499,13 @@ async Task SocketReceiveTcpClientAsync(TcpClient client, SslStream? sslStream = 
 }
 #endregion
 #region Socket/SuperSocket-Socket
-async Task TestSocket(string host, bool useSsl, int serverPort)
+async Task TestSocketNonSsl(string host, int serverPort)
 {
     Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client Connecting......");
     var client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
     await client.ConnectAsync(new IPEndPoint(IPAddress.Loopback, serverPort));
     while (!client.Connected) { continue; }
-    Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client Connected.");
+    Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client Connected.[{host}:{serverPort}");
     #region 异步接收消息
     var thread = new Thread(SocketReceive) { IsBackground = true };
     thread.Start(client);
@@ -513,10 +516,12 @@ async Task TestSocket(string host, bool useSsl, int serverPort)
     //    client.Close();
     //}, TaskCreationOptions.LongRunning);
     #endregion
+    await Task.Delay(1000);
     //发消息
-    Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client Send LOGIN aaa ppp2 {client.LocalEndPoint}");
-    await client.SendAsync(Encoding.UTF8.GetBytes($"LOGIN aaa ppp2 {client.LocalEndPoint}\r\n"));
-    //await Task.Delay(10);
+    var sendMsg = $"LOGIN aaa ppp";
+    Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client Send [{sendMsg}] {client.LocalEndPoint}");
+    await client.SendAsync(Encoding.UTF8.GetBytes($"{sendMsg} {client.LocalEndPoint}\r\n"));
+    await Task.Delay(100);
     Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client Send MSG hello world {client.LocalEndPoint}");
     await client.SendAsync(Encoding.UTF8.GetBytes($"MSG hello world {client.LocalEndPoint}\r\n"));
     //await Task.Delay(50000);
@@ -541,11 +546,12 @@ async Task SocketReceiveAsync(Socket client)
         try
         {
             int received = await client.ReceiveAsync(buffer);
+            if (received <= 0) continue;
             var response = Encoding.Default.GetString(buffer);
-            Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client 接收到服务器数据: {response}");
+            Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client 收: [{client.Connected}]{response}");
             if (response == "<|ACK|>")
             {
-                Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client 接收到服务器数据 acknowledgment: \"{response}\"");
+                Console.WriteLine($"{DateTime.Now:HH:mm:ss.fff} Socket Client 收 acknowledgment: {response}");
                 break;
             }
         }

@@ -108,9 +108,9 @@ await app.Services.GetRequiredService<MqttHandler>().StartServer();
 #endregion
 
 #region SocketIO ∆Ù”√ [http+https]
-app.UseServ<SocketIOHandler>(async socketIO => await socketIO.StartServer(app.Lifetime.ApplicationStopping));
-//var socketIO = app.Services.GetRequiredService<SocketIOHandler>();
-//await socketIO.StartServer(app.Lifetime.ApplicationStopping);
+//app.UseServ<SocketIOHandler>(async socketIO => await socketIO.StartServer(app.Lifetime.ApplicationStopping));
+////var socketIO = app.Services.GetRequiredService<SocketIOHandler>();
+////await socketIO.StartServer(app.Lifetime.ApplicationStopping);
 #endregion
 
 #region SuperSocket ∆Ù”√ [http+https]
@@ -126,7 +126,6 @@ app.UseServ<SocketHandler>(async socket => await socket.StartServer(app.Lifetime
 #endregion
 
 app.Run();
-
 
 public static class AppBuilderExtensions
 {
