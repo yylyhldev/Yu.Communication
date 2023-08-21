@@ -51,6 +51,10 @@ namespace Yu.Communication.Server
                     CertFile = Configuration.GetValue<string>("CertFile"),
                     CertPwd = Configuration.GetValue<string>("CertPwd")
                 };
+                if (string.IsNullOrWhiteSpace(certData.CertName) && certData.UseSsl)
+                {
+                    certData.CertName = CertificateHelper.GetCertificateName(certData.CertFile, certData.CertPwd);
+                }
                 IPEndPoint ipEndPoint = new(IPAddress.Any, certData.UseSsl ? portSsl : port);
 
                 #region new TcpListener(ipEndPoint).Start()

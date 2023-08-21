@@ -59,6 +59,10 @@ namespace Yu.Communication.Server
                     CertFile = Configuration.GetValue<string>("CertFile"),
                     CertPwd = Configuration.GetValue<string>("CertPwd")
                 };
+                if (string.IsNullOrWhiteSpace(conf.CertName) && conf.UseSsl)
+                {
+                    conf.CertName = CertificateHelper.GetCertificateName(conf.CertFile, conf.CertPwd);
+                }
                 ulong verificationMs = 1500;
                 var options = new SocketIOServerOption(conf.UseSsl ? portSSl : port, Secure: false, ServerCertificate: CertificateHelper.GetCertificateFromStore(conf.CertName), ClientCertificateValidationCallback: CertificateHelper.ValidateRemoteCertificate, VerificationTimeout: verificationMs, AllowEIO3: true);
                 //var options = new SocketIOServerOption(conf.UseSsl ? portSSl : port, Secure: conf.UseSsl, ServerCertificate: CertificateHelper.GetCertificate(conf.CertFile,conf.CertPwd), ClientCertificateValidationCallback: ValidateRemoteCertificate);

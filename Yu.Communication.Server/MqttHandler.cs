@@ -68,6 +68,10 @@ namespace Yu.Communication.Server
                 CertFile = Configuration.GetValue<string>("CertFile"),
                 CertPwd = Configuration.GetValue<string>("CertPwd")
             };
+            if (string.IsNullOrWhiteSpace(conf.CertName) && conf.UseSsl)
+            {
+                conf.CertName = CertificateHelper.GetCertificateName(conf.CertFile, conf.CertPwd);
+            }
             //mqttServerOptionsBuilder.WithoutDefaultEndpoint();//禁用默认的非SSL端口：1883
             //mqttServerOptionsBuilder.WithoutEncryptedEndpoint();//禁用默认的SSL端口：8883
 
@@ -78,7 +82,7 @@ namespace Yu.Communication.Server
             mqttServerOptionsBuilder.WithDefaultEndpointPort(conf.Port);
             mqttServerOptionsBuilder.WithDefaultEndpointBoundIPAddress(System.Net.IPAddress.Any);
 
-            if (!string.IsNullOrWhiteSpace(conf.CertName) || !string.IsNullOrWhiteSpace(conf.CertFile))
+            if (conf.UseSsl)
             {
                 mqttServerOptionsBuilder.WithEncryptedEndpoint();
                 mqttServerOptionsBuilder.WithEncryptedEndpointPort(conf.PortSsl);

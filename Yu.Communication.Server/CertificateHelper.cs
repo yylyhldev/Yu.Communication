@@ -8,7 +8,7 @@ namespace Yu.Communication.Server
         public string CertName { get; set; }
         public string CertFile { get; set; }
         public string CertPwd { get; set; }
-        public bool UseSsl { get { return !string.IsNullOrWhiteSpace(CertName) || !string.IsNullOrWhiteSpace(CertFile); } }
+        public bool UseSsl { get { return !string.IsNullOrWhiteSpace(CertName) || (!string.IsNullOrWhiteSpace(CertFile) && System.IO.File.Exists(CertFile)); } }
     }
     public class PortCert: CertData
     {

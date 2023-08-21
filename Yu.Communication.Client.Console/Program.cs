@@ -44,9 +44,9 @@ Console.WriteLine($"开始[{host} | {useSsl} | {certName}]");
 //await BatchExec(1, async () => await TestWebSocket(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:WebPort{portSsl}"), tokenVal));//WebSocket
 //await BatchExec(1, async () => await TestSignalR(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:WebPort{portSsl}"), tokenVal));//SignalR
 //await BatchExec(1, async () => await TestMqtt(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:MqttPort{portSsl}"), tokenVal));//Mqtt
-await BatchExec(1, () => TestSocketIO(host, useSsl, Configuration.GetValue<ushort>($"CommunicationServers:SocketIOPort{portSsl}")));//SocketIO
+//await BatchExec(1, () => TestSocketIO(host, useSsl, Configuration.GetValue<ushort>($"CommunicationServers:SocketIOPort{portSsl}")));//SocketIO
 
-//await BatchExec(1, async () => await TestSocket(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:SuperSocketPort{portSsl}")));//SuperSocket
+await BatchExec(1, async () => await TestSocket(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:SuperSocketPort{portSsl}")));//SuperSocket
 //await BatchExec(1, async () => await TestSocket(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:SocketPort{portSsl}")));//Socket
 
 //await BatchExec(1, async () => await TestSocketTcpClient(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:SuperSocketPort{portSsl}")));//SuperSocket
