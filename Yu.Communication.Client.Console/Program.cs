@@ -20,6 +20,46 @@ using Yu.Communication.Server;
 Console.WriteLine("Hello, World!");
 await Task.Delay(3000);
 Console.WriteLine("开始了......");
+
+#region NetMQ
+//Pull-Push
+new Thread(delegate ()
+{
+    NetMQHelper.Pull((msg) => Console.WriteLine(msg));
+})
+{ IsBackground = true }.Start();
+new Thread(delegate ()
+{
+    NetMQHelper.Push((msg) => Console.WriteLine(msg));
+})
+{ IsBackground = true }.Start();
+
+//Publish-Subscribe
+new Thread(delegate ()
+{
+    NetMQHelper.Subscribe((msg) => Console.WriteLine(msg));
+})
+{ IsBackground = true }.Start();
+new Thread(delegate ()
+{
+    NetMQHelper.Publish((msg) => Console.WriteLine(msg));
+})
+{ IsBackground = true }.Start();
+
+//Request-Response
+new Thread(delegate ()
+{
+    NetMQHelper.Response((msg) => Console.WriteLine(msg));
+})
+{ IsBackground = true }.Start();
+new Thread(delegate ()
+{
+    NetMQHelper.Request((msg) => Console.WriteLine(msg));
+})
+{ IsBackground = true }.Start();
+Console.ReadLine(); 
+#endregion
+
 var tokenVal = "eyJhbGciOiJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGRzaWctbW9yZSNobWFjLXNoYTI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjkwMjU1RDA3ODVGRUFDOTdGMkFGRjU0OEE5RjdENEQyOTg4MzY4NjAiLCJuYW1lIjoiQzBGRkU3N0ExM0NGMUMwREQ3NTYyQTdEQUVCQTk2QUM2NTYwOTYiLCJwaG9uZV9udW1iZXIiOiJDMEZGRTc3QTEzQ0YxQzBERDc1NjJBN0RBRUJBOTZBQzY1NjA5NiIsIm5iZiI6MTY4NDczMTkxOSwiZXhwIjoxNzEwNjUxOTE5LCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo0NDM3NiIsImF1ZCI6Imh0dHBzOi8vbG9jYWxob3N0OjQ0Mzc2In0.EmpsSWxLUIi5LZqkMRyicktkRB30nwrRhD6KXcxiNzE";
 
 DateTime authTime = DateTime.Now;
