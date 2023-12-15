@@ -4,6 +4,11 @@
         <name>Yu.Communication.Server.Web</name>
     </assembly>
     <members>
+        <member name="M:Yu.Communication.Server.Web.Controllers.SSEController.ServerSendEvents(System.Threading.CancellationToken)">
+            <summary>
+            EventSource
+            </summary>
+        </member>
         <member name="T:Yu.Communication.Server.Web.SingalRAuthorizationMiddleware">
             <summary>
             非jwt方式鉴权，需与 builder.Services.AddJwtConfigure 二选一 <br/>
