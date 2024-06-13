@@ -110,6 +110,24 @@ namespace Yu.Communication.Server
             mqtt.StartedAsync += (EventArgs e) => 
             {
                 _logger.LogInformation($"MQTT Server 已启动");
+                new Thread(async delegate () {
+                    await Task.Delay(9000);
+                    //await PublishAsync("aaa", "-------------------test-------------------", false);
+                    //var MessageBuilder = new MqttApplicationMessageBuilder()
+                    //   .WithTopic("aaa")
+                    //   .WithPayload("-------------------test-------------------")
+                    //   .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+                    //   .WithRetainFlag(false)
+                    //   .Build();
+                    //await Server.InjectApplicationMessage(new InjectedMqttApplicationMessage(MessageBuilder) { SenderClientId = ServerId });
+
+                    var message = new MqttApplicationMessageBuilder()
+                         .WithTopic("aaa")
+                         .WithPayload("-------------------test222-------------------")
+                         .Build();
+                    await Server.InjectApplicationMessage(new InjectedMqttApplicationMessage(message));
+                })
+                { IsBackground = true }.Start();
                 return Task.CompletedTask;
             };
             mqtt.StoppedAsync += (EventArgs e) => 
@@ -125,12 +143,12 @@ namespace Yu.Communication.Server
             mqtt.ClientUnsubscribedTopicAsync += OnClientUnsubscribedTopic;
 
             mqtt.InterceptingPublishAsync += OnInterceptingPublish;//消息接收事件
-
-            mqtt.ApplicationMessageNotConsumedAsync += (ApplicationMessageNotConsumedEventArgs e) => 
+            mqtt.ApplicationMessageNotConsumedAsync += (ApplicationMessageNotConsumedEventArgs e) =>
             {
                 Console.WriteLine($"MQTT Server 消息未使用事件");
                 return Task.CompletedTask;
             };
+
             mqtt.InterceptingSubscriptionAsync += (InterceptingSubscriptionEventArgs e) => 
             {
                 Console.WriteLine($"MQTT Server 拦截订阅事件");

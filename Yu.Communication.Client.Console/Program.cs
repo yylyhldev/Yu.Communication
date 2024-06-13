@@ -22,42 +22,42 @@ await Task.Delay(3000);
 Console.WriteLine("开始了......");
 
 #region NetMQ
-//Pull-Push
-new Thread(delegate ()
-{
-    NetMQHelper.Pull((msg) => Console.WriteLine(msg));
-})
-{ IsBackground = true }.Start();
-new Thread(delegate ()
-{
-    NetMQHelper.Push((msg) => Console.WriteLine(msg));
-})
-{ IsBackground = true }.Start();
+////Pull-Push
+//new Thread(delegate ()
+//{
+//    NetMQHelper.Pull((msg) => Console.WriteLine(msg));
+//})
+//{ IsBackground = true }.Start();
+//new Thread(delegate ()
+//{
+//    NetMQHelper.Push((msg) => Console.WriteLine(msg));
+//})
+//{ IsBackground = true }.Start();
 
-//Publish-Subscribe
-new Thread(delegate ()
-{
-    NetMQHelper.Subscribe((msg) => Console.WriteLine(msg));
-})
-{ IsBackground = true }.Start();
-new Thread(delegate ()
-{
-    NetMQHelper.Publish((msg) => Console.WriteLine(msg));
-})
-{ IsBackground = true }.Start();
+////Publish-Subscribe
+//new Thread(delegate ()
+//{
+//    NetMQHelper.Subscribe((msg) => Console.WriteLine(msg));
+//})
+//{ IsBackground = true }.Start();
+//new Thread(delegate ()
+//{
+//    NetMQHelper.Publish((msg) => Console.WriteLine(msg));
+//})
+//{ IsBackground = true }.Start();
 
-//Request-Response
-new Thread(delegate ()
-{
-    NetMQHelper.Response((msg) => Console.WriteLine(msg));
-})
-{ IsBackground = true }.Start();
-new Thread(delegate ()
-{
-    NetMQHelper.Request((msg) => Console.WriteLine(msg));
-})
-{ IsBackground = true }.Start();
-Console.ReadLine(); 
+////Request-Response
+//new Thread(delegate ()
+//{
+//    NetMQHelper.Response((msg) => Console.WriteLine(msg));
+//})
+//{ IsBackground = true }.Start();
+//new Thread(delegate ()
+//{
+//    NetMQHelper.Request((msg) => Console.WriteLine(msg));
+//})
+//{ IsBackground = true }.Start();
+//Console.ReadLine(); 
 #endregion
 
 var tokenVal = "eyJhbGciOiJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGRzaWctbW9yZSNobWFjLXNoYTI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjkwMjU1RDA3ODVGRUFDOTdGMkFGRjU0OEE5RjdENEQyOTg4MzY4NjAiLCJuYW1lIjoiQzBGRkU3N0ExM0NGMUMwREQ3NTYyQTdEQUVCQTk2QUM2NTYwOTYiLCJwaG9uZV9udW1iZXIiOiJDMEZGRTc3QTEzQ0YxQzBERDc1NjJBN0RBRUJBOTZBQzY1NjA5NiIsIm5iZiI6MTY4NDczMTkxOSwiZXhwIjoxNzEwNjUxOTE5LCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo0NDM3NiIsImF1ZCI6Imh0dHBzOi8vbG9jYWxob3N0OjQ0Mzc2In0.EmpsSWxLUIi5LZqkMRyicktkRB30nwrRhD6KXcxiNzE";
@@ -83,7 +83,7 @@ Console.WriteLine($"开始[{host} | {useSsl} | {certName}]");
 
 //await BatchExec(1, async () => await TestWebSocket(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:WebPort{portSsl}"), tokenVal));//WebSocket
 //await BatchExec(1, async () => await TestSignalR(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:WebPort{portSsl}"), tokenVal));//SignalR
-//await BatchExec(1, async () => await TestMqtt(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:MqttPort{portSsl}"), tokenVal));//Mqtt
+await BatchExec(1, async () => await TestMqtt(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:MqttPort{portSsl}"), tokenVal));//Mqtt
 //await BatchExec(1, () => TestSocketIO(host, useSsl, Configuration.GetValue<ushort>($"CommunicationServers:SocketIOPort{portSsl}")));//SocketIO
 
 //await BatchExec(1, async () => await TestSocketTcpClient(host, useSsl, Configuration.GetValue<int>($"CommunicationServers:SuperSocketPort{portSsl}")));//SuperSocket
@@ -255,11 +255,11 @@ async Task TestMqtt(string host, bool useSsl, int serverPort, string tokenVal)
                 IgnoreCertificateChainErrors = true,
                 IgnoreCertificateRevocationErrors = true,
                 CertificateValidationHandler = ValidateMqttServerCertificate,
-                Certificates = new[] {
-                            new X509Certificate2("D:\\Deploy\\domain.com.pfx", "123456"),
-                            new X509Certificate(@"D:\\Deploy\\\domain.com_bundle.crt")
-                    },
-                SslProtocol = SslProtocols.Tls12
+                //Certificates = new[] {
+                //            new X509Certificate2("D:\\Deploy\\domain.com.pfx", "123456"),
+                //            new X509Certificate(@"D:\\Deploy\\\domain.com_bundle.crt")
+                //    },
+                //SslProtocol = SslProtocols.Tls12
             })
             .Build();//1883//8100
         await mqttClient.ConnectAsync(mqttClientOptions, CancellationToken.None);
@@ -271,7 +271,12 @@ async Task TestMqtt(string host, bool useSsl, int serverPort, string tokenVal)
             QualityOfServiceLevel = MQTTnet.Protocol.MqttQualityOfServiceLevel.ExactlyOnce,
             Retain = false
         };
-        if (mqttClient.IsConnected) await mqttClient?.PublishAsync(applicationMessage, CancellationToken.None);
+        if (mqttClient.IsConnected)
+        {
+            await mqttClient?.PublishAsync(applicationMessage, CancellationToken.None);
+            await mqttClient.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic("aaa").Build());
+        }
+
         await Task.Delay(50000);
         // This will send the DISCONNECT packet. Calling _Dispose_ without DisconnectAsync the 
         // connection is closed in a "not clean" way. See MQTT specification for more details.
