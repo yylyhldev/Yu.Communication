@@ -16,6 +16,7 @@ using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.Configuration;
 using System.Security.Authentication;
 using Yu.Communication.Server;
+using NetMQ;
 
 Console.WriteLine("Hello, World!");
 await Task.Delay(3000);
@@ -63,7 +64,7 @@ Console.WriteLine("开始了......");
 var tokenVal = "eyJhbGciOiJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGRzaWctbW9yZSNobWFjLXNoYTI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjkwMjU1RDA3ODVGRUFDOTdGMkFGRjU0OEE5RjdENEQyOTg4MzY4NjAiLCJuYW1lIjoiQzBGRkU3N0ExM0NGMUMwREQ3NTYyQTdEQUVCQTk2QUM2NTYwOTYiLCJwaG9uZV9udW1iZXIiOiJDMEZGRTc3QTEzQ0YxQzBERDc1NjJBN0RBRUJBOTZBQzY1NjA5NiIsIm5iZiI6MTY4NDczMTkxOSwiZXhwIjoxNzEwNjUxOTE5LCJpc3MiOiJodHRwczovL2xvY2FsaG9zdDo0NDM3NiIsImF1ZCI6Imh0dHBzOi8vbG9jYWxob3N0OjQ0Mzc2In0.EmpsSWxLUIi5LZqkMRyicktkRB30nwrRhD6KXcxiNzE";
 
 DateTime authTime = DateTime.Now;
-var SigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(Encoding.UTF8.GetBytes("jwtSecretKey0000000000"));
+var SigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(Encoding.UTF8.GetBytes("jwtSecretKey0000000000jwtSecretKey0000000000"));
 var jwt = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(
     issuer: "https://localhost:8080",
     audience: "https://localhost:8080",
@@ -242,13 +243,15 @@ async Task TestMqtt(string host, bool useSsl, int serverPort, string tokenVal)
     var mqttFactory = new MqttFactory();
     using (var mqttClient = mqttFactory.CreateMqttClient())
     {
-        MqttEventListener(mqttClient);
+        string mqttClientId = "aaaaaaa";
+        MqttEventListener(mqttClientId, mqttClient);
         var mqttClientOptions = new MqttClientOptionsBuilder()
             .WithTcpServer(host, serverPort)
             //.WithWebSocketServer($"{host}:{serverPort}/mqtt")
-            .WithClientId("aaaaaaa")
+            .WithClientId(mqttClientId)
             .WithCredentials("Authorization", tokenVal)
-            .WithTls(new MqttClientOptionsBuilderTlsParameters
+            //.WithTls(new MqttClientOptionsBuilderTlsParameters
+            .WithTlsOptions(new MqttClientTlsOptions
             {
                 UseTls = useSsl,
                 AllowUntrustedCertificates = true,
@@ -261,20 +264,22 @@ async Task TestMqtt(string host, bool useSsl, int serverPort, string tokenVal)
                 //    },
                 //SslProtocol = SslProtocols.Tls12
             })
+            .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V500)//MqttApplicationMessage.UserProperties UserProperties requires MQTT version 5.0.0.
             .Build();//1883//8100
         await mqttClient.ConnectAsync(mqttClientOptions, CancellationToken.None);
+        await mqttClient.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic("aaa").Build());
         await Task.Delay(500);
-        var applicationMessage = new MqttApplicationMessage
-        {
-            Topic = "aaa",
-            PayloadSegment = Encoding.UTF8.GetBytes("sdhsdkghsdg"),
-            QualityOfServiceLevel = MQTTnet.Protocol.MqttQualityOfServiceLevel.ExactlyOnce,
-            Retain = false
-        };
         if (mqttClient.IsConnected)
         {
+            var applicationMessage = new MqttApplicationMessage
+            {
+                Topic = "aaa",
+                PayloadSegment = Encoding.UTF8.GetBytes($"{mqttClientId}:sdhsdkghsdg"),
+                QualityOfServiceLevel = MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce,
+                Retain = false,
+                UserProperties = new List<MQTTnet.Packets.MqttUserProperty> { new ("mqttClientId", mqttClientId) }
+            };
             await mqttClient?.PublishAsync(applicationMessage, CancellationToken.None);
-            await mqttClient.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic("aaa").Build());
         }
 
         await Task.Delay(50000);
@@ -283,7 +288,7 @@ async Task TestMqtt(string host, bool useSsl, int serverPort, string tokenVal)
         if (mqttClient.IsConnected) await mqttClient.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().WithReason(MqttClientDisconnectOptionsReason.NormalDisconnection).Build());
     }
 }
-void MqttEventListener(IMqttClient mqttClient)
+void MqttEventListener(string mqttClientId, IMqttClient mqttClient)
 {
     mqttClient.ConnectingAsync += (MqttClientConnectingEventArgs e) =>
     {
@@ -306,7 +311,11 @@ void MqttEventListener(IMqttClient mqttClient)
         var payload = Encoding.UTF8.GetString(e.ApplicationMessage.PayloadSegment);
         var Qos = e.ApplicationMessage.QualityOfServiceLevel;
         var Retain = e.ApplicationMessage.Retain;
-        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]收到Mqtt Server消息>>Topic：[{topic}] Payload：[{payload}] Qos：[{Qos}] Retain：[{Retain}]");
+        //MqttApplicationMessageReceivedEventArgs.ClientId都是当前客户端id，无法区分消息来源
+        //可通过不同topic进行收发，或payload加标识来区分
+        var logType = payload.StartsWith(mqttClientId) ? "client send" : "client received";
+        payload = payload.Replace(mqttClientId + ":", null);
+        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]{logType}消息>>Topic：[{topic}] Payload：[{payload}] Qos：[{Qos}] Retain：[{Retain}]");
         return Task.CompletedTask;
     };
 }

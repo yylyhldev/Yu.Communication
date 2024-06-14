@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System.Security.Authentication;
 using System.Collections.Concurrent;
+using MQTTnet.Client;
 
 namespace Yu.Communication.Server
 {
@@ -19,7 +20,8 @@ namespace Yu.Communication.Server
         /// <summary>
         /// 当前服务实例Id
         /// </summary>
-        private static string ServerId => $"Server{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
+        //private static string ServerId => $"Server{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
+        private readonly string ServerId = $"Server{Guid.NewGuid().ToString().Replace("-", string.Empty)}";
         private static MqttServer Server = null;
 
         private readonly ILogger<MqttHandler> _logger;
@@ -72,11 +74,11 @@ namespace Yu.Communication.Server
             {
                 conf.CertName = CertificateHelper.GetCertificateName(conf.CertFile, conf.CertPwd);
             }
-            //mqttServerOptionsBuilder.WithoutDefaultEndpoint();//禁用默认的非SSL端口：1883
-            //mqttServerOptionsBuilder.WithoutEncryptedEndpoint();//禁用默认的SSL端口：8883
-
             mqttServerOptionsBuilder.WithMaxPendingMessagesPerClient(1000);
             mqttServerOptionsBuilder.WithDefaultCommunicationTimeout(TimeSpan.FromMilliseconds(1000));
+
+            //mqttServerOptionsBuilder.WithoutDefaultEndpoint();//禁用默认的非SSL端口：1883
+            //mqttServerOptionsBuilder.WithoutEncryptedEndpoint();//禁用默认的SSL端口：8883
 
             mqttServerOptionsBuilder.WithDefaultEndpoint();
             mqttServerOptionsBuilder.WithDefaultEndpointPort(conf.Port);
@@ -110,24 +112,6 @@ namespace Yu.Communication.Server
             mqtt.StartedAsync += (EventArgs e) => 
             {
                 _logger.LogInformation($"MQTT Server 已启动");
-                new Thread(async delegate () {
-                    await Task.Delay(9000);
-                    //await PublishAsync("aaa", "-------------------test-------------------", false);
-                    //var MessageBuilder = new MqttApplicationMessageBuilder()
-                    //   .WithTopic("aaa")
-                    //   .WithPayload("-------------------test-------------------")
-                    //   .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-                    //   .WithRetainFlag(false)
-                    //   .Build();
-                    //await Server.InjectApplicationMessage(new InjectedMqttApplicationMessage(MessageBuilder) { SenderClientId = ServerId });
-
-                    var message = new MqttApplicationMessageBuilder()
-                         .WithTopic("aaa")
-                         .WithPayload("-------------------test222-------------------")
-                         .Build();
-                    await Server.InjectApplicationMessage(new InjectedMqttApplicationMessage(message));
-                })
-                { IsBackground = true }.Start();
                 return Task.CompletedTask;
             };
             mqtt.StoppedAsync += (EventArgs e) => 
@@ -311,7 +295,16 @@ namespace Yu.Communication.Server
             var payload = System.Text.Encoding.UTF8.GetString(e.ApplicationMessage.PayloadSegment);
             var Qos = e.ApplicationMessage.QualityOfServiceLevel;
             var Retain = e.ApplicationMessage.Retain;
-            _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}]received>>ClientId：[{e.ClientId}] Topic：[{topic}] Payload：[{payload}] Qos：[{Qos}] Retain：[{Retain}]");
+            var logType = string.Compare(e.ClientId, ServerId) == 0 ? "server send" : "server received";
+            //客户端MqttApplicationMessageReceivedEventArgs.ClientId都是客户端id，无法区分消息来源
+            //与每个客户端可通过不同topic进行收发，或payload加标识来区分
+            payload = payload.Replace(e.ClientId + ":", null);
+            _logger.LogInformation($"[{DateTime.Now:HH:mm:ss.fff}]{logType}>>ClientId：[{e.ClientId}] Topic：[{topic}] Payload：[{payload}] Qos：[{Qos}] Retain：[{Retain}]");
+            if (string.Compare(e.ClientId, ServerId) != 0)
+            {
+                await Task.Delay(1000);
+                await PublishAsync(topic, "------server auto reply------", Retain);
+            }
         }
         #endregion
 
